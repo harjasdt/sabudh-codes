@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keyword and Semantic Search</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1f2430;--muted:#5d6577;--card:#fff;--line:#e2ded4;--accent:#2f5bea;--good:#1b7f4b;--bad:#b3261e;--code:#f1eee6;--hi:#fff3c4}
+@media (prefers-color-scheme:dark){:root{--bg:#14161b;--fg:#e8e9ee;--muted:#9aa1b2;--card:#1d2027;--line:#333846;--accent:#7fa0ff;--good:#5fd39a;--bad:#ff8a80;--code:#262a33;--hi:#4a4220}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:2rem;margin:.2em 0}
+h2{font-size:1.5rem;margin:2.2em 0 .4em;padding-top:.6em;border-top:2px solid var(--line)}
+h3{font-size:1.1rem;margin:1.4em 0 .3em}
+p.lead{color:var(--muted);font-size:1.05rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+.formula{font-family:ui-monospace,Menlo,monospace;background:var(--code);border-radius:8px;padding:10px 14px;margin:10px 0;overflow-x:auto;white-space:pre}
+.flaw{border-left:5px solid var(--bad)}
+.flaw b.t{color:var(--bad)}
+.good{border-left:5px solid var(--good)}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:.95rem}
+th,td{border:1px solid var(--line);padding:6px 10px;text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{background:var(--code)}
+td.win,tr.win td{background:var(--hi);font-weight:600}
+.wrap{overflow-x:auto}
+code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.92em}
+.docs{font-family:ui-monospace,Menlo,monospace;font-size:.92rem}
+.docs div{padding:2px 0}
+label{display:block;margin:8px 0 2px;font-size:.92rem;color:var(--muted)}
+input[type=range]{width:100%}
+input[type=text]{width:100%;font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+.tabs button{font:inherit;padding:6px 14px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;cursor:pointer;margin-right:6px}
+.tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+svg{width:100%;height:auto;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.nav{color:var(--muted);font-size:.95rem}
+.toptabs{display:flex;gap:8px;margin:14px 0 0;border-bottom:2px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5;padding-top:6px}
+.toptabs button{font:inherit;font-weight:600;padding:10px 18px;border:1px solid var(--line);border-bottom:none;border-radius:10px 10px 0 0;background:var(--card);color:var(--muted);cursor:pointer}
+.toptabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<h1>Keyword to Semantic Search</h1>
+<p class="lead">How does a search box decide which documents match "the cat"? We start with the simplest idea, find where it breaks, and fix it, three times.</p>
+<p class="nav">TF &rarr; TF-IDF &rarr; BM25 &rarr; semantic search (second tab)</p>
+<div class="toptabs" role="tablist">
+<button id="tb-kw" class="on" data-tab="kw">1. Keyword Search</button>
+<button id="tb-sem" data-tab="sem">2. Semantic Search</button>
+</div>
+<div id="tab-kw">
+
+<div class="card">
+<b>Our tiny corpus (N = 5 documents)</b> used in every example below.
+<div class="docs" id="corpus"></div>
+<p style="margin:8px 0 0;color:var(--muted)">Query for the worked examples: <code>the cat</code>. Which document do <em>you</em> think should win?</p>
+</div>
+
+<!-- ========== TF ========== -->
+<h2>1. Term Frequency (TF)</h2>
+<p><b>Idea:</b> a document that mentions a word more often is probably more about that word. Score a document by counting query words in it.</p>
+<div class="formula">tf(t, d)    = number of times term t appears in document d
+score(q, d) = sum of tf(t, d) for every term t in the query q</div>
+
+<h3>Worked numeric example: query "the cat"</h3>
+<div class="wrap"><table id="tf-table"></table></div>
+<p id="tf-note"></p>
+
+<div class="card flaw">
+<b class="t">Flaw 1: every word counts equally.</b>
+<p>"the" is in every document, so it tells us nothing, yet it adds the same weight as "cat". In the table, D2 ties with D3 mostly because of the word "the", although D3 is clearly the most "cat" document (3 cats, a cat-food page), and cat-less D4/D5 still get points.</p>
+<b class="t">Flaw 2: long documents win.</b>
+<p>A long document has more chances to contain the words. Raw counts do not account for length. (A common patch, dividing by length, <code>tf = count / len(d)</code>, helps a bit but still does not fix flaw 1.)</p>
+</div>
+
+<!-- ========== TF-IDF ========== -->
+<h2>2. TF-IDF</h2>
+<p><b>Fix for flaw 1:</b> weight each word by how <em>rare</em> it is across the corpus. A word found in every document is useless for telling documents apart; a word found in one document is a strong signal.</p>
+<div class="formula">df(t)      = number of documents that contain t
+idf(t)     = ln( N / df(t) )
+tfidf(t,d) = tf(t, d) x idf(t)
+score(q,d) = sum of tfidf(t, d) over query terms</div>
+
+<h3>Step 1: inverse document frequency (N = 5)</h3>
+<div class="wrap"><table id="idf-table"></table></div>
+<p>"the" appears in all 5 documents so <code>idf = ln(5/5) = 0</code>. It is switched off automatically. "cat" appears in 3 of 5.</p>
+
+<h3>Step 2: multiply tf by idf</h3>
+<div class="wrap"><table id="tfidf-table"></table></div>
+<p id="tfidf-note"></p>
+
+<div class="card flaw">
+<b class="t">Flaw 1: tf grows linearly (keyword stuffing).</b>
+<p>10 mentions of "cat" is scored 10x a single mention. But a document that says "cat" 100 times is not 100x more relevant. Spammers exploit this. Real relevance <em>saturates</em>.</p>
+<b class="t">Flaw 2: no length normalisation.</b>
+<p>A 1,000-word article containing "cat" 3 times scores the same as a 5-word note with 3 cats, even though the short note is far more focused.</p>
+<b class="t">Flaw 3: edge cases.</b>
+<p>If a term is in every document, idf is exactly 0 (fine). With other formulas idf can even go negative. We need a safer, smoother idf.</p>
+</div>
+
+<!-- ========== BM25 ========== -->
+<h2>3. BM25 (Okapi BM25)</h2>
+<p><b>Fix:</b> keep the idf idea, but make tf <em>saturate</em> and <em>normalise for document length</em>. This is the algorithm behind Lucene, Elasticsearch and many production search engines.</p>
+<div class="formula">idf(t)  = ln( (N - df + 0.5) / (df + 0.5) + 1 )        # always &gt;= 0
+
+              tf x (k1 + 1)
+tfpart = ------------------------------------
+          tf + k1 x (1 - b + b x len(d)/avgdl)
+
+score(q,d) = sum over query terms of  idf(t) x tfpart</div>
+<div class="card">
+<b>Two knobs</b>
+<ul>
+<li><code>k1</code> (typically 1.2 to 2.0) controls <b>saturation</b>. Small k1: after a couple of mentions extra ones barely help. Large k1: closer to linear TF.</li>
+<li><code>b</code> (0 to 1, typically 0.75) controls <b>length normalisation</b>. b=0: ignore length. b=1: full normalisation against the average document length (<code>avgdl</code>).</li>
+</ul>
+</div>
+
+<h3>Play with the knobs</h3>
+<div class="card">
+<label>k1 = <span id="k1v"></span></label><input id="k1" type="range" min="0" max="3" step="0.1" value="1.5">
+<label>b = <span id="bv"></span></label><input id="b" type="range" min="0" max="1" step="0.05" value="0.75">
+<svg id="curve" viewBox="0 0 600 260" role="img" aria-label="TF saturation curves"></svg>
+<p style="color:var(--muted);font-size:.92rem;margin:6px 0 0">x-axis: how many times the word appears (0 to 30) in a document of average length. y-axis: score contribution. Grey dashed = raw TF/TF-IDF (straight line, no limit). Blue = BM25 flattens out. Orange = same word count in a document twice as long as average: it is penalised when b &gt; 0.</p>
+</div>
+
+<h3>Worked numeric example: query "the cat"</h3>
+<p id="bm-setup"></p>
+<div class="wrap"><table id="bm-table"></table></div>
+<p id="bm-note"></p>
+
+<div class="card flaw">
+<b class="t">What BM25 still cannot do.</b>
+<p>It only matches <em>exact words</em>. Search "automobile" and a document about a "car" scores zero. "feline" will not find "cat". It has no idea that words have meanings. That is why we need <b>embeddings and semantic search</b>, the next lesson.</p>
+</div>
+
+<h2>Try it yourself</h2>
+<div class="card">
+<label>Type a query (try: <i>the cat</i>, <i>dog chased</i>, <i>cat cat cat</i>, <i>feline</i>)</label>
+<input type="text" id="q" value="the cat">
+<div class="tabs" style="margin:10px 0"><button data-m="tf">TF</button><button data-m="tfidf">TF-IDF</button><button data-m="bm25" class="on">BM25</button></div>
+<div class="wrap"><table id="live"></table></div>
+</div>
+
+<h2>Summary</h2>
+<div class="wrap"><table>
+<tr><th>Method</th><th>Rewards</th><th>Main weakness</th></tr>
+<tr><td>TF</td><td style="text-align:left">Repeating a query word</td><td style="text-align:left">Common words dominate; long docs win</td></tr>
+<tr><td>TF-IDF</td><td style="text-align:left">Rare, informative words</td><td style="text-align:left">Linear in tf (stuffing); ignores length</td></tr>
+<tr><td>BM25</td><td style="text-align:left">Rare words, saturating tf, length-aware</td><td style="text-align:left">Exact words only; no meaning</td></tr>
+</table></div>
+<p class="nav">Code it yourself in <code>bm25_keyword_search.ipynb</code>. Now see how <a href="#" onclick="showTab('sem');return false">semantic search</a> fixes the exact-word problem.</p>
+</div><!-- /tab-kw -->
+
+<!-- ================= SEMANTIC SEARCH TAB ================= -->
+<div id="tab-sem" hidden>
+<h2 style="border-top:0;margin-top:1em">Semantic Search: search by meaning</h2>
+<p class="lead">Keyword search asks "do the same <em>words</em> appear?". Semantic search asks "do the same <em>ideas</em> appear?". The trick: turn text into numbers that capture meaning.</p>
+
+<div class="card flaw">
+<b class="t">The problem we are solving</b>
+<p>Search <code>feline</code> in our corpus. BM25 gives every document a score of 0 because the word "feline" never appears, even though three documents are about cats. Try it:</p>
+<div class="wrap"><table id="s-bmfail"></table></div>
+</div>
+
+<h2>1. What is an embedding (vector)?</h2>
+<p>An <b>embedding</b> is a list of numbers (a <b>vector</b>) that represents a piece of text so that <em>similar meaning &rarr; similar numbers</em>. A neural network learned these numbers by reading huge amounts of text.</p>
+<div class="formula">"cat"    -&gt; [ 0.90, 0.10, 0.00, 0.00 ]
+"feline" -&gt; [ 0.95, 0.05, 0.00, 0.00 ]     close to "cat"
+"dog"    -&gt; [ 0.10, 0.90, 0.00, 0.00 ]     different direction
+"pizza"  -&gt; [ 0.00, 0.00, 0.90, 0.00 ]     very different</div>
+<div class="card">
+<b>Think of it as coordinates on a map of meaning.</b> Each position (dimension) is some learned feature. In our toy example the 4 dimensions are roughly <i>cat-ness, dog-ness, food-ness, vehicle-ness</i>. We chose these by hand so you can read them.
+<ul>
+<li><b>Real models:</b> dimensions are not human-readable. <code>all-MiniLM-L6-v2</code> gives 384 numbers per sentence; OpenAI <code>text-embedding-3-small</code> gives 1536.</li>
+<li><b>A sentence/document vector</b> represents the whole text. In our toy we simply average the word vectors. Real models use a transformer that reads the whole sentence in context.</li>
+<li>Same model must embed <b>both</b> documents and queries, otherwise the numbers are not comparable.</li>
+</ul>
+</div>
+
+<h3>Toy map of meaning (2 of the 4 dimensions)</h3>
+<svg id="s-map" viewBox="0 0 600 340" role="img" aria-label="Words plotted by cat-ness and dog-ness"></svg>
+<p style="color:var(--muted);font-size:.92rem">x = cat-ness, y = dog-ness. Words with similar meaning sit near each other, and point in the same direction from the origin.</p>
+
+<h2>2. Cosine similarity: how close are two vectors?</h2>
+<p>We need one number saying "how similar are these two vectors?". The standard choice is the <b>angle</b> between them.</p>
+<div class="formula">                 A . B           sum(Ai x Bi)
+cos(A, B) = --------------- = -------------------------------
+             |A| x |B|       sqrt(sum Ai^2) x sqrt(sum Bi^2)</div>
+<ul>
+<li><b>1</b> = same direction (same meaning) &nbsp; <b>0</b> = unrelated (90&deg;) &nbsp; <b>-1</b> = opposite</li>
+<li>It ignores vector <em>length</em>, so a long document and a short one about the same topic can still match.</li>
+<li>If vectors are normalised to length 1, cosine is just the dot product. That is why vector databases are fast.</li>
+</ul>
+
+<h3>Worked example: "feline" vs "cat" vs "dog"</h3>
+<div class="wrap"><table id="s-cos"></table></div>
+<p id="s-cosnote"></p>
+<div class="card good"><b>Step by step for feline &middot; cat:</b>
+<div class="formula" id="s-cosdetail"></div></div>
+
+<h2>3. Vector database</h2>
+<p>With 5 documents you can compare the query against all of them. With 50 million you cannot. A <b>vector database</b> stores vectors and finds the nearest ones quickly.</p>
+<div class="card">
+<b>What it stores</b>
+<div class="formula">id | vector (e.g. 384 floats)       | metadata / original text
+D1 | [0.9, 0.1, 0.0, 0.0, ...]      | "the cat sat on the mat"
+D2 | [0.4, 0.5, 0.0, 0.0, ...]      | "the dog chased the cat in the garden"
+...</div>
+<b>What it does</b>
+<ul>
+<li><b>Exact search (brute force):</b> compute cosine with every vector, sort. Perfect but O(N). Fine up to ~100k vectors.</li>
+<li><b>Approximate Nearest Neighbour (ANN) search:</b> build an index (HNSW graphs, IVF clusters, product quantisation) so you check only a small fraction of vectors. Slightly less accurate, vastly faster.</li>
+<li><b>Examples:</b> FAISS (library), Chroma (simple, local), pgvector (Postgres extension), Qdrant, Pinecone, Weaviate. MongoDB Atlas also has vector search.</li>
+<li>Also handles inserts/deletes, persistence, and filtering ("only docs from 2024").</li>
+</ul>
+</div>
+
+<h2>4. A simple query, step by step</h2>
+<ol>
+<li><b>Index time (once):</b> embed every document &rarr; store vectors in the vector DB.</li>
+<li><b>Query time:</b> embed the query with the <em>same</em> model.</li>
+<li><b>Compare:</b> cosine similarity between the query vector and every stored vector (or ANN lookup).</li>
+<li><b>Rank:</b> sort by similarity, return the top-k.</li>
+</ol>
+<div class="formula">query = "feline"
+q_vec = embed(query)                      # [0.95, 0.05, 0, 0]
+scores = [cosine(q_vec, v) for v in db]   # one score per document
+top_k  = sorted(by score, descending)[:3]</div>
+<p>In real Python this is about 5 lines with <code>sentence-transformers</code>:</p>
+<div class="formula">from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")
+doc_vecs = model.encode(docs, normalize_embeddings=True)   # index time
+q_vec    = model.encode("feline", normalize_embeddings=True)
+scores   = doc_vecs @ q_vec                                # cosine (vectors are normalised)
+top      = scores.argsort()[::-1][:3]</div>
+
+<h3>Live demo (toy embeddings, runs in your browser)</h3>
+<div class="card">
+<label>Query (try: <i>feline</i>, <i>puppy</i>, <i>kitten food</i>, <i>canine</i>, <i>bark</i>). Words outside our tiny vocabulary are ignored.</label>
+<input type="text" id="sq" value="feline">
+<p id="sq-vec" style="font-family:ui-monospace,Menlo,monospace;font-size:.92rem"></p>
+<div class="wrap"><table id="s-live"></table></div>
+<div class="wrap"><table id="s-livebm"></table></div>
+<p style="color:var(--muted);font-size:.92rem">Top table: semantic (cosine). Bottom table: BM25 on the same query. Note how BM25 returns zeros for words that are not literally in the documents.</p>
+</div>
+
+<h2>Keyword vs Semantic</h2>
+<div class="wrap"><table>
+<tr><th></th><th>Keyword (BM25)</th><th>Semantic (embeddings)</th></tr>
+<tr><td>Matches</td><td style="text-align:left">Exact words</td><td style="text-align:left">Meaning, synonyms, paraphrases</td></tr>
+<tr><td>Strong at</td><td style="text-align:left">Names, IDs, rare terms, error codes</td><td style="text-align:left">Natural-language questions</td></tr>
+<tr><td>Weak at</td><td style="text-align:left">Synonyms, typos in meaning</td><td style="text-align:left">Exact identifiers; needs a model; costlier</td></tr>
+<tr><td>Explainable?</td><td style="text-align:left">Yes, you can see matched words</td><td style="text-align:left">Harder, it is just a number</td></tr>
+</table></div>
+<p>In practice production systems often use <b>hybrid search</b>: combine BM25 and vector scores.</p>
+</div><!-- /tab-sem -->
+</main>
+
+<script>
+const DOCS = [
+  "the cat sat on the mat",
+  "the dog chased the cat in the garden",
+  "the best cat food and cat toys for any cat",
+  "the fox jumps over the lazy dog",
+  "the dog barked at the mailman"
+];
+const tok = s => s.toLowerCase().match(/[a-z0-9]+/g) || [];
+const T = DOCS.map(tok);
+const N = T.length;
+const LEN = T.map(t => t.length);
+const AVG = LEN.reduce((a,b)=>a+b,0)/N;
+const tf = (t,i) => T[i].filter(w=>w===t).length;
+const df = t => T.filter(d=>d.includes(t)).length;
+const idfPlain = t => { const d=df(t); return d? Math.log(N/d) : 0; };
+const idfBM = t => { const d=df(t); return Math.log((N-d+0.5)/(d+0.5)+1); };
+const f2 = x => x.toFixed(2), f3 = x => x.toFixed(3);
+const $ = id => document.getElementById(id);
+const Q = ["the","cat"];
+
+function table(el, head, rows, winCol){
+  let h = "<tr>"+head.map(x=>`<th>${x}</th>`).join("")+"</tr>";
+  let best = winCol!=null ? Math.max(...rows.map(r=>r.v[winCol])) : null;
+  rows.forEach(r=>{
+    h += `<tr class="${best!=null && r.v[winCol]===best && best>0?'win':''}">`+r.c.map(x=>`<td>${x}</td>`).join("")+"</tr>";
+  });
+  el.innerHTML = h;
+}
+$("corpus").innerHTML = DOCS.map((d,i)=>`<div>D${i+1} (${LEN[i]} words): ${d}</div>`).join("");
+
+// --- TF ---
+(function(){
+  const rows = DOCS.map((d,i)=>{
+    const a=tf("the",i), b=tf("cat",i);
+    return {c:[`D${i+1}`,LEN[i],a,b,a+b], v:[a+b]};
+  });
+  table($("tf-table"),["Doc","length","tf(the)","tf(cat)","score = sum"],rows,0);
+  $("tf-note").innerHTML = "D2 and D3 tie at 4. But 3 of D2's 4 points come from the useless word 'the', while D3's points are all real 'cat' mentions. Even D4 and D5, which have no 'cat' at all, score 2 just for containing 'the'.";
+})();
+
+// --- IDF ---
+(function(){
+  const rows = ["the","cat","dog","chased"].map(t=>({c:[t,df(t),`ln(${N}/${df(t)})`,f3(idfPlain(t))],v:[0]}));
+  table($("idf-table"),["term","df","idf = ln(N/df)","value"],rows);
+})();
+
+// --- TF-IDF ---
+(function(){
+  const w=idfPlain("the"), c=idfPlain("cat");
+  const rows = DOCS.map((d,i)=>{
+    const a=tf("the",i)*w, b=tf("cat",i)*c;
+    return {c:[`D${i+1}`,`${tf("the",i)} x ${f3(w)} = ${f3(a)}`,`${tf("cat",i)} x ${f3(c)} = ${f3(b)}`,f3(a+b)],v:[a+b]};
+  });
+  table($("tfidf-table"),["Doc","the: tf x idf","cat: tf x idf","score"],rows,0);
+  $("tfidf-note").innerHTML = "'the' now contributes 0. D3 (three cats) wins clearly and D2 no longer gets a free ride. But notice D3 got 3x the score of D1 simply for repeating 'cat' three times: linear growth.";
+})();
+
+// --- BM25 ---
+function bmTerm(t,i,k1,b){
+  const f=tf(t,i);
+  return idfBM(t)*f*(k1+1)/(f+k1*(1-b+b*LEN[i]/AVG));
+}
+function bmScore(q,i,k1,b){ return q.reduce((s,t)=>s+bmTerm(t,i,k1,b),0); }
+(function(){
+  const k1=1.5,b=0.75;
+  $("bm-setup").innerHTML = `N = ${N}, avgdl = (${LEN.join("+")})/${N} = <b>${f2(AVG)}</b>, k1 = ${k1}, b = ${b}.<br>
+  idf_bm25(the) = ln((5-5+0.5)/(5+0.5)+1) = <b>${f3(idfBM("the"))}</b>, &nbsp; idf_bm25(cat) = ln((5-3+0.5)/(3+0.5)+1) = <b>${f3(idfBM("cat"))}</b>`;
+  const rows = DOCS.map((d,i)=>{
+    const a=bmTerm("the",i,k1,b), c=bmTerm("cat",i,k1,b);
+    const norm = 1-b+b*LEN[i]/AVG;
+    return {c:[`D${i+1}`,LEN[i],f3(norm),f3(a),f3(c),f3(a+c)],v:[a+c]};
+  });
+  table($("bm-table"),["Doc","length","length factor<br>(1-b+b*len/avgdl)","the","cat","score"],rows,4);
+  $("bm-note").innerHTML = "D3 still wins, but 3 cats is no longer 3x better than 1 cat (saturation), and the longer document is penalised slightly. 'the' contributes only a tiny amount because its BM25 idf is near 0.";
+})();
+
+// --- curve ---
+function drawCurve(){
+  const k1=+$("k1").value, b=+$("b").value;
+  $("k1v").textContent=k1.toFixed(1); $("bv").textContent=b.toFixed(2);
+  const W=600,H=260,L=44,B=28,R=10,Tp=10, X=30;
+  const bm = (f,ratio)=> f*(k1+1)/(f+k1*(1-b+b*ratio));
+  const ymax = Math.max(X*0.35, k1+1, 3);
+  const px = x=>L+(W-L-R)*x/X, py = y=>H-B-(H-B-Tp)*y/ymax;
+  let s = `<line x1="${L}" y1="${H-B}" x2="${W-R}" y2="${H-B}" stroke="currentColor" opacity=".4"/><line x1="${L}" y1="${Tp}" x2="${L}" y2="${H-B}" stroke="currentColor" opacity=".4"/>`;
+  for(let x=0;x<=X;x+=5) s+=`<text x="${px(x)}" y="${H-10}" font-size="11" text-anchor="middle" fill="currentColor">${x}</text>`;
+  for(let y=0;y<=Math.floor(ymax);y++) s+=`<text x="${L-6}" y="${py(y)+4}" font-size="11" text-anchor="end" fill="currentColor">${y}</text>`;
+  const path = fn => { let d=""; for(let x=0;x<=X;x+=0.25) d+=(x?"L":"M")+px(x)+" "+py(Math.min(fn(x),ymax))+" "; return d; };
+  s+=`<path d="${path(x=>x*0.35)}" fill="none" stroke="#888" stroke-dasharray="5 4" stroke-width="2"/>`;
+  s+=`<path d="${path(x=>bm(x,1))}" fill="none" stroke="#2f5bea" stroke-width="3"/>`;
+  s+=`<path d="${path(x=>bm(x,2))}" fill="none" stroke="#e8860c" stroke-width="3"/>`;
+  s+=`<line x1="${L}" x2="${W-R}" y1="${py(k1+1)}" y2="${py(k1+1)}" stroke="#2f5bea" stroke-dasharray="2 4" opacity=".6"/><text x="${W-R-4}" y="${py(k1+1)-4}" font-size="11" text-anchor="end" fill="currentColor">ceiling = k1+1 = ${(k1+1).toFixed(1)}</text>`;
+  $("curve").innerHTML = s;
+}
+$("k1").oninput=$("b").oninput=drawCurve; drawCurve();
+
+// --- live ---
+let mode="bm25";
+function live(){
+  const q = tok($("q").value);
+  const uniq = [...new Set(q)];
+  const sc = i => uniq.reduce((s,t)=>{
+    if(mode==="tf") return s+tf(t,i);
+    if(mode==="tfidf") return s+tf(t,i)*idfPlain(t);
+    return s+bmTerm(t,i,1.5,0.75);
+  },0);
+  const rows = DOCS.map((d,i)=>({c:[`D${i+1}: ${d}`,f3(sc(i))],v:[sc(i)]}));
+  rows.sort((a,b)=>b.v[0]-a.v[0]);
+  table($("live"),["Document (ranked)","score"],rows,0);
+}
+document.querySelectorAll(".tabs button").forEach(btn=>btn.onclick=()=>{
+  document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("on"));
+  btn.classList.add("on"); mode=btn.dataset.m; live();
+});
+$("q").oninput=live; live();
+
+// ================= top-level tabs =================
+function showTab(name){
+  ["kw","sem"].forEach(n=>{
+    $("tab-"+n).hidden = n!==name;
+    $("tb-"+n).classList.toggle("on", n===name);
+  });
+  window.scrollTo(0,0);
+  try{ history.replaceState(null,"","#"+name); }catch(e){}
+}
+document.querySelectorAll(".toptabs button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+if(location.hash==="#sem") showTab("sem");
+
+// ================= semantic search (toy embeddings) =================
+// dims: [cat-ness, dog-ness, food-ness, vehicle-ness]
+const WV = {
+  cat:[.90,.10,0,0], feline:[.95,.05,0,0], kitten:[.90,.10,0,0], kitty:[.90,.10,0,0], meow:[.90,.05,0,0],
+  dog:[.10,.90,0,0], puppy:[.10,.95,0,0], canine:[.05,.95,0,0], bark:[.05,.90,0,0], barked:[.05,.90,0,0], chased:[.20,.60,0,.05],
+  fox:[.20,.60,0,0], food:[0,0,.90,0], toys:[.30,.30,0,0], pizza:[0,0,.90,0],
+  mat:[.20,.05,0,0], garden:[.10,.10,0,0], mailman:[.05,.50,0,.1], car:[0,0,0,.95]
+};
+const embed = text => {
+  const ws = tok(text).filter(w=>WV[w]);
+  if(!ws.length) return null;
+  const v=[0,0,0,0];
+  ws.forEach(w=>WV[w].forEach((x,i)=>v[i]+=x/ws.length));
+  return v;
+};
+const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
+const norm=a=>Math.sqrt(dot(a,a));
+const cosine=(a,b)=>{const d=norm(a)*norm(b);return d?dot(a,b)/d:0;};
+const fv = v => "["+v.map(x=>x.toFixed(2)).join(", ")+"]";
+const DV = DOCS.map(embed);
+
+// BM25 failure on "feline"
+(function(){
+  const rows=DOCS.map((d,i)=>({c:[`D${i+1}: ${d}`,f3(bmScore(["feline"],i,1.5,0.75))],v:[0]}));
+  table($("s-bmfail"),["Document","BM25 score for 'feline'"],rows);
+})();
+
+// cosine table
+(function(){
+  const A=WV.feline;
+  const rows=["cat","kitten","dog","pizza","car"].map(w=>{
+    const B=WV[w];
+    return {c:[w,fv(B),f3(dot(A,B)),f3(norm(A)*norm(B)),f3(cosine(A,B))],v:[cosine(A,B)]};
+  });
+  table($("s-cos"),["compare feline with","vector","A &middot; B","|A| x |B|","cosine"],rows,4);
+  $("s-cosnote").innerHTML="'feline' is nearly identical in direction to 'cat' and 'kitten' (cosine close to 1), moderately related to 'dog' (both animals, but a different direction) and unrelated to 'pizza' and 'car' (cosine 0).";
+  const B=WV.cat;
+  $("s-cosdetail").textContent=
+`A = feline = ${fv(A)}      B = cat = ${fv(B)}
+A . B   = ${A.map((x,i)=>`${x}x${B[i]}`).join(" + ")} = ${f3(dot(A,B))}
+|A|     = sqrt(${A.map(x=>x+"^2").join(" + ")}) = ${f3(norm(A))}
+|B|     = sqrt(${B.map(x=>x+"^2").join(" + ")}) = ${f3(norm(B))}
+cosine  = ${f3(dot(A,B))} / (${f3(norm(A))} x ${f3(norm(B))}) = ${f3(cosine(A,B))}`;
+})();
+
+// 2D map
+(function(){
+  const W=600,H=340,L=46,Bt=34,Tp=14,R=20;
+  const px=x=>L+(W-L-R)*x, py=y=>H-Bt-(H-Bt-Tp)*y;
+  let s=`<line x1="${L}" y1="${H-Bt}" x2="${W-R}" y2="${H-Bt}" stroke="currentColor" opacity=".4"/><line x1="${L}" y1="${Tp}" x2="${L}" y2="${H-Bt}" stroke="currentColor" opacity=".4"/>`;
+  s+=`<text x="${W/2}" y="${H-6}" font-size="12" text-anchor="middle" fill="currentColor">cat-ness &rarr;</text><text x="12" y="${H/2}" font-size="12" fill="currentColor" transform="rotate(-90 12 ${H/2})" text-anchor="middle">dog-ness &rarr;</text>`;
+  const groups={cat:"#2f5bea",feline:"#2f5bea",kitten:"#2f5bea",meow:"#2f5bea",dog:"#e8860c",puppy:"#e8860c",canine:"#e8860c",bark:"#e8860c",fox:"#999",pizza:"#1b7f4b",car:"#1b7f4b"};
+  Object.keys(groups).forEach((w,i)=>{
+    const [x,y]=WV[w];
+    s+=`<line x1="${px(0)}" y1="${py(0)}" x2="${px(x)}" y2="${py(y)}" stroke="${groups[w]}" opacity=".35"/><circle cx="${px(x)}" cy="${py(y)}" r="5" fill="${groups[w]}"/>`;
+    s+=`<text x="${px(x)+(x>.5?-8:8)}" y="${py(y)+(i%2?14:-8)}" font-size="12" fill="currentColor" text-anchor="${x>.5?'end':'start'}">${w}</text>`;
+  });
+  $("s-map").innerHTML=s;
+})();
+
+// live semantic query
+function slive(){
+  const qt=$("sq").value, qv=embed(qt);
+  if(!qv){ $("sq-vec").textContent="No known words in the query. Our toy vocabulary: "+Object.keys(WV).join(", "); $("s-live").innerHTML=""; $("s-livebm").innerHTML=""; return; }
+  $("sq-vec").innerHTML="Step 1. embed(query) = <b>"+fv(qv)+"</b>";
+  const rows=DOCS.map((d,i)=>({c:[`D${i+1}: ${d}`,fv(DV[i]),f3(cosine(qv,DV[i]))],v:[cosine(qv,DV[i])]})).sort((a,b)=>b.v[0]-a.v[0]);
+  table($("s-live"),["Semantic: doc (ranked)","doc vector","cosine"],rows,0);
+  const q=[...new Set(tok(qt))];
+  const rb=DOCS.map((d,i)=>({c:[`D${i+1}: ${d}`,f3(bmScore(q,i,1.5,0.75))],v:[bmScore(q,i,1.5,0.75)]})).sort((a,b)=>b.v[0]-a.v[0]);
+  table($("s-livebm"),["Keyword: doc (ranked)","BM25"],rb,0);
+}
+$("sq").oninput=slive; slive();
+</script>
+</body>
+</html>

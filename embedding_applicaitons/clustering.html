@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clustering: Finding Groups</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1f2430;--muted:#5d6577;--card:#fff;--line:#e2ded4;--accent:#2f5bea;--good:#1b7f4b;--bad:#b3261e;--code:#f1eee6;--hi:#fff3c4}
+@media (prefers-color-scheme:dark){:root{--bg:#14161b;--fg:#e8e9ee;--muted:#9aa1b2;--card:#1d2027;--line:#333846;--accent:#7fa0ff;--good:#5fd39a;--bad:#ff8a80;--code:#262a33;--hi:#4a4220}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:2rem;margin:.2em 0}
+h2{font-size:1.5rem;margin:2.2em 0 .4em;padding-top:.6em;border-top:2px solid var(--line)}
+h3{font-size:1.1rem;margin:1.4em 0 .3em}
+p.lead{color:var(--muted);font-size:1.05rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+.good{border-left:5px solid var(--good)}
+.flaw{border-left:5px solid var(--bad)}
+.flaw b.t{color:var(--bad)}
+.formula{font-family:ui-monospace,Menlo,monospace;background:var(--code);border-radius:8px;padding:10px 14px;margin:10px 0;overflow-x:auto;white-space:pre}
+code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.92em}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:.95rem}
+th,td{border:1px solid var(--line);padding:6px 10px;text-align:left}
+th{background:var(--code)}
+.wrap{overflow-x:auto}
+label{display:block;margin:8px 0 2px;font-size:.92rem;color:var(--muted)}
+select,button{font:inherit;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+input[type=range]{width:100%}
+.row{display:flex;gap:16px;flex-wrap:wrap}
+.row>div{flex:1;min-width:200px}
+canvas{width:100%;height:auto;background:var(--card);border:1px solid var(--line);border-radius:10px;display:block}
+.nav{color:var(--muted);font-size:.95rem}
+.cl{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.cl>div{border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card)}
+.cl b{display:block;margin-bottom:4px}
+.cl div div{font-size:.93rem}
+</style>
+</head>
+<body>
+<main>
+<h1>Clustering: finding groups without labels</h1>
+<p class="lead">Nobody tells the computer what the groups are. It looks at the data and discovers them itself.</p>
+<p class="nav">What is clustering &rarr; algorithms on plain numbers (K-means, DBSCAN, hierarchical) &rarr; clustering text with embeddings</p>
+
+<!-- ========== 1 ========== -->
+<h2>1. What is clustering?</h2>
+<div class="card">
+<b>Everyday picture:</b> you pour a bag of mixed laundry on the floor and sort it into piles: whites, darks, towels. Nobody gave you the pile names in advance. You made piles by putting <em>similar</em> things together.
+<ul>
+<li>Other examples: customer segments, grouping news articles by topic, finding similar songs, spotting unusual transactions.</li>
+<li>It is <b>unsupervised learning</b>: there is no "right answer" column, unlike classification.</li>
+<li>Two things you must decide: <b>how to measure "similar"</b> (distance) and <b>what a group looks like</b> (round blob? any shape?). Different algorithms answer these differently.</li>
+</ul>
+</div>
+<div class="card">
+<b>Each dot below is a customer</b> (x = how often they shop, y = how much they spend). Press the button.
+<p><button id="c1-btn">Find the groups</button></p>
+<canvas id="c1" width="600" height="320"></canvas>
+<p id="c1-note" style="margin:6px 0 0;color:var(--muted)"></p>
+</div>
+
+<!-- ========== 2 ========== -->
+<h2>2. Algorithms on plain numbers (no embeddings)</h2>
+<p>When every item is already a few numbers (age, income, x/y position), we can measure similarity with ordinary <b>distance</b> and cluster directly. Here are three classics. Play with them on the same data.</p>
+
+<div class="card">
+<div class="row">
+<div><label>Dataset</label><select id="c-data"><option value="blobs">3 round blobs</option><option value="moons">2 crescent moons</option></select></div>
+<div><label>Algorithm</label><select id="c-algo">
+<option value="kmeans">K-means</option>
+<option value="dbscan">DBSCAN</option>
+<option value="single">Hierarchical (single linkage)</option>
+<option value="average">Hierarchical (average linkage)</option>
+</select></div>
+</div>
+<div id="p-k"><label>k (number of clusters) = <span id="c-kv"></span></label><input id="c-k" type="range" min="1" max="8" step="1" value="3"></div>
+<div id="p-it"><label>K-means iteration = <span id="c-itv"></span> <span style="font-size:.85rem">(drag to watch it learn)</span></label><input id="c-it" type="range" min="0" max="0" step="1" value="0"></div>
+<div id="p-db">
+<label>eps (neighbourhood radius) = <span id="c-epsv"></span></label><input id="c-eps" type="range" min="0.02" max="0.15" step="0.005" value="0.06">
+<label>minPts (neighbours needed to be a core point) = <span id="c-mpv"></span></label><input id="c-mp" type="range" min="2" max="10" step="1" value="4">
+</div>
+<p id="p-re"><button id="c-reroll">New random start</button></p>
+<canvas id="c-cv" width="600" height="400"></canvas>
+<p id="c-info" style="margin:8px 0 0"></p>
+</div>
+
+<h3>K-means</h3>
+<div class="card good">
+<ol>
+<li>Choose <b>k</b>. Drop k centroids (the X marks) on random data points.</li>
+<li><b>Assign:</b> every point joins its nearest centroid.</li>
+<li><b>Update:</b> move each centroid to the average of its points.</li>
+<li>Repeat 2 and 3 until nothing changes.</li>
+</ol>
+<div class="formula">minimise  inertia = sum over points of  distance(point, its centroid)^2</div>
+<b>+</b> simple, fast, works on millions of points. &nbsp; <b>&minus;</b> you must pick k; assumes round, similar-size blobs; sensitive to the random start; outliers drag centroids.
+</div>
+<p><b>How to pick k?</b> Inertia always falls as k grows, so look for the "elbow" where the improvement slows down:</p>
+<div class="wrap"><table id="elbow"></table></div>
+
+<h3>DBSCAN (density based)</h3>
+<div class="card good">
+<ol>
+<li>A point with at least <code>minPts</code> neighbours within distance <code>eps</code> is a <b>core point</b>.</li>
+<li>Core points that are neighbours join the same cluster; the cluster keeps growing through core points.</li>
+<li>Points that belong to no dense area are labelled <b>noise</b> (grey).</li>
+</ol>
+<b>+</b> no k needed; finds any shape (try the moons); detects outliers. &nbsp; <b>&minus;</b> you must tune eps/minPts; struggles when densities differ.
+</div>
+
+<h3>Hierarchical (agglomerative)</h3>
+<div class="card good">
+<ol>
+<li>Start with every point as its own cluster.</li>
+<li>Repeatedly <b>merge the two closest clusters</b>.</li>
+<li>Stop when k clusters are left (or draw the full tree, a <i>dendrogram</i>).</li>
+</ol>
+"Closest" depends on the linkage: <b>single</b> = distance between the nearest two points (can follow a chain, good for moons), <b>average</b> = average of all pairwise distances (prefers round groups, like K-means).<br>
+<b>+</b> no random start, gives a full tree. &nbsp; <b>&minus;</b> slow on big data (about O(n&sup2;) or worse).
+</div>
+
+<div class="card flaw">
+<b class="t">The limitation of everything above</b>
+<p>These algorithms need each item to be a short list of meaningful numbers. What are the "coordinates" of the sentence <i>"my puppy loves the park"</i>? Counting words gives huge, mostly-zero vectors in which <i>puppy</i> and <i>dog</i> are as different as <i>puppy</i> and <i>pizza</i>. We need numbers that capture <b>meaning</b>. That is what embeddings give us.</p>
+</div>
+
+<!-- ========== 3 ========== -->
+<h2>3. Clustering with embeddings</h2>
+<p>Recipe, the same one you used for semantic search:</p>
+<div class="formula">text  --embedding model--&gt;  vector  --clustering algorithm--&gt;  groups of similar meaning
+"my cat loves the puppy"  -&gt; [0.9, 0.0, 0.0, 0.0]  -&gt;  cluster "pets"</div>
+<ul>
+<li>The <b>clustering algorithm is the same</b> (K-means, DBSCAN, hierarchical). Only the input changed: vectors from a model such as <code>all-MiniLM-L6-v2</code> (384 numbers).</li>
+<li>Distance between embeddings is usually <b>cosine</b>. If vectors are normalised to length 1, ordinary K-means works well.</li>
+<li>Uses: group support tickets by issue, find topics in reviews, de-duplicate similar articles, label unlabeled data.</li>
+</ul>
+
+<h3>Live demo (toy 4-number embeddings)</h3>
+<p style="color:var(--muted);font-size:.95rem">The dimensions are roughly <i>pet-ness, food-ness, vehicle-ness, sport-ness</i>, hand-made so you can read them, as in the semantic search page. Real models learn their own dimensions. Every sentence below is embedded, then K-means groups them. No one told it the topics.</p>
+<div class="card">
+<label>k = <span id="e-kv"></span></label><input id="e-k" type="range" min="2" max="6" step="1" value="4">
+<div class="cl" id="e-out"></div>
+<p id="e-note" style="margin:10px 0 0;color:var(--muted)"></p>
+</div>
+
+<h3>Choosing and checking clusters on text</h3>
+<ul>
+<li><b>k too small</b> merges different topics; <b>k too large</b> splits one topic. Try k = 2 and k = 6 above.</li>
+<li>Always <b>read samples</b> from each cluster and name them. If you cannot name a cluster, it probably is not meaningful.</li>
+<li>For high-dimensional embeddings, reduce to 2-D with PCA or UMAP only for <em>plotting</em>.</li>
+</ul>
+
+<h2>Summary</h2>
+<div class="wrap"><table>
+<tr><th>Algorithm</th><th>Needs k?</th><th>Cluster shape</th><th>Outliers</th><th>Good for</th></tr>
+<tr><td>K-means</td><td>Yes</td><td>Round blobs</td><td>Pulled by them</td><td>Big data, embeddings, quick segments</td></tr>
+<tr><td>DBSCAN</td><td>No (eps, minPts)</td><td>Any shape</td><td>Marks as noise</td><td>Geographic data, anomaly spotting</td></tr>
+<tr><td>Hierarchical</td><td>Optional</td><td>Depends on linkage</td><td>Depends</td><td>Small data, wanting a tree</td></tr>
+</table></div>
+<p class="nav">Do it in code with real embeddings in <code>clustering.ipynb</code>. Previous lessons: <a href="keyword_search.html">keyword search</a> and <a href="keyword_search.html#sem">semantic search</a>.</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const COL = ["#2f5bea","#e8860c","#1b7f4b","#c2185b","#7b1fa2","#00838f","#8d6e63","#f9a825"];
+function rng(seed){ return ()=>{ seed=(seed*1664525+1013904223)%4294967296; return seed/4294967296; }; }
+function gauss(r){ return Math.sqrt(-2*Math.log(r()+1e-9))*Math.cos(2*Math.PI*r()); }
+const d2 = (a,b)=>{ let s=0; for(let i=0;i<a.length;i++){ const t=a[i]-b[i]; s+=t*t; } return s; };
+
+// ---------- datasets ----------
+function makeBlobs(){
+  const r=rng(7), cs=[[.25,.3],[.72,.25],[.5,.74]], P=[], T=[];
+  cs.forEach((c,k)=>{ for(let i=0;i<35;i++){ P.push([c[0]+gauss(r)*.06, c[1]+gauss(r)*.06]); T.push(k); } });
+  return {P,T};
+}
+function makeMoons(){
+  const r=rng(3), P=[], T=[], n=50;
+  const map=(x,y)=>[(x+1)*.27+.1, .78-(y+.5)*.27];
+  for(let i=0;i<n;i++){
+    const t=Math.PI*i/(n-1);
+    P.push(map(Math.cos(t)+gauss(r)*.05, Math.sin(t)+gauss(r)*.05)); T.push(0);
+    P.push(map(1-Math.cos(t)+gauss(r)*.05, .5-Math.sin(t)+gauss(r)*.05)); T.push(1);
+  }
+  return {P,T};
+}
+const DATA = {blobs:makeBlobs(), moons:makeMoons()};
+
+// ---------- algorithms ----------
+function kmeansHist(P,k,initIdx){
+  let C = initIdx.map(i=>P[i].slice());
+  let prev=null, hist=[];
+  for(let it=0; it<60; it++){
+    const L = P.map(p=>{ let b=0,bd=Infinity; C.forEach((c,j)=>{ const d=d2(p,c); if(d<bd){bd=d;b=j;} }); return b; });
+    hist.push({C:C.map(c=>c.slice()), L});
+    if(prev && L.every((l,i)=>l===prev[i])) break;
+    prev=L;
+    C = C.map((c,j)=>{
+      const m=P.filter((_,i)=>L[i]===j);
+      if(!m.length) return c;
+      return c.map((_,d)=>m.reduce((s,p)=>s+p[d],0)/m.length);
+    });
+  }
+  return hist;
+}
+const inertia = (P,h)=>{ const s=h[h.length-1]; return P.reduce((a,p,i)=>a+d2(p,s.C[s.L[i]]),0); };
+function randomInit(n,k,seed){ const r=rng(seed), idx=[]; while(idx.length<k){ const i=Math.floor(r()*n); if(!idx.includes(i)) idx.push(i); } return idx; }
+function farthestInit(P,k){
+  const idx=[0];
+  while(idx.length<k){
+    let b=0,bd=-1;
+    P.forEach((p,i)=>{ const d=Math.min(...idx.map(j=>d2(p,P[j]))); if(d>bd){bd=d;b=i;} });
+    idx.push(b);
+  }
+  return idx;
+}
+function dbscan(P,eps,minPts){
+  const n=P.length, L=Array(n).fill(undefined), e2=eps*eps;
+  const nb = i=>{ const o=[]; for(let j=0;j<n;j++) if(d2(P[i],P[j])<=e2) o.push(j); return o; };
+  let c=-1;
+  for(let i=0;i<n;i++){
+    if(L[i]!==undefined) continue;
+    const N=nb(i);
+    if(N.length<minPts){ L[i]=-1; continue; }
+    c++; L[i]=c;
+    const q=N.filter(j=>j!==i);
+    while(q.length){
+      const j=q.pop();
+      if(L[j]===-1) L[j]=c;
+      if(L[j]!==undefined) continue;
+      L[j]=c;
+      const N2=nb(j);
+      if(N2.length>=minPts) N2.forEach(x=>q.push(x));
+    }
+  }
+  return L;
+}
+function agglo(P,k,link){
+  const n=P.length;
+  const D=P.map(a=>P.map(b=>Math.sqrt(d2(a,b))));
+  let cl=P.map((_,i)=>[i]);
+  const dist=(A,B)=>{
+    if(link==="single"){ let m=Infinity; A.forEach(i=>B.forEach(j=>{ if(D[i][j]<m) m=D[i][j]; })); return m; }
+    let s=0; A.forEach(i=>B.forEach(j=>s+=D[i][j])); return s/(A.length*B.length);
+  };
+  while(cl.length>k){
+    let bi=0,bj=1,bd=Infinity;
+    for(let i=0;i<cl.length;i++) for(let j=i+1;j<cl.length;j++){ const d=dist(cl[i],cl[j]); if(d<bd){bd=d;bi=i;bj=j;} }
+    cl[bi]=cl[bi].concat(cl[bj]); cl.splice(bj,1);
+  }
+  const L=Array(n);
+  cl.forEach((c,j)=>c.forEach(i=>L[i]=j));
+  return L;
+}
+
+// ---------- drawing ----------
+function draw(cv,P,L,cent){
+  const g=cv.getContext("2d"), W=cv.width, H=cv.height;
+  g.clearRect(0,0,W,H);
+  const px=x=>20+(W-40)*x, py=y=>20+(H-40)*y;
+  P.forEach((p,i)=>{
+    const l=L?L[i]:null;
+    g.beginPath(); g.arc(px(p[0]),py(p[1]),5,0,6.2832);
+    if(l===null){ g.fillStyle="#888"; g.fill(); }
+    else if(l<0){ g.strokeStyle="#888"; g.lineWidth=1.5; g.stroke(); }
+    else { g.fillStyle=COL[l%COL.length]; g.fill(); }
+  });
+  if(cent) cent.forEach((c,j)=>{
+    const x=px(c[0]), y=py(c[1]);
+    g.lineWidth=7; g.strokeStyle="#fff"; g.beginPath(); g.moveTo(x-9,y-9); g.lineTo(x+9,y+9); g.moveTo(x+9,y-9); g.lineTo(x-9,y+9); g.stroke();
+    g.lineWidth=3.5; g.strokeStyle=COL[j%COL.length]; g.beginPath(); g.moveTo(x-9,y-9); g.lineTo(x+9,y+9); g.moveTo(x+9,y-9); g.lineTo(x-9,y+9); g.stroke();
+  });
+}
+
+// ---------- section 1 ----------
+let grouped=false;
+function sec1(){
+  const d=DATA.blobs;
+  draw($("c1"), d.P, grouped?d.T:null, null);
+  $("c1-btn").textContent = grouped?"Hide the groups":"Find the groups";
+  $("c1-note").textContent = grouped?"Three customer segments, found just by noticing which dots sit close together.":"Just dots. Can you see groups with your own eyes? A clustering algorithm does the same thing.";
+}
+$("c1-btn").onclick=()=>{ grouped=!grouped; sec1(); };
+sec1();
+
+// ---------- section 2 ----------
+let hist=[], seed=2;
+function recompute(){
+  const ds=$("c-data").value, algo=$("c-algo").value, P=DATA[ds].P;
+  $("c-kv").textContent=$("c-k").value;
+  $("c-epsv").textContent=(+$("c-eps").value).toFixed(3);
+  $("c-mpv").textContent=$("c-mp").value;
+  $("p-k").hidden = algo==="dbscan";
+  $("p-it").hidden = algo!=="kmeans";
+  $("p-re").hidden = algo!=="kmeans";
+  $("p-db").hidden = algo!=="dbscan";
+  if(algo==="kmeans"){
+    hist=kmeansHist(P,+$("c-k").value,randomInit(P.length,+$("c-k").value,seed));
+    $("c-it").max=hist.length-1; $("c-it").value=hist.length-1;
+  }
+  render();
+}
+function render(){
+  const ds=$("c-data").value, algo=$("c-algo").value, P=DATA[ds].P, k=+$("c-k").value;
+  const cv=$("c-cv"); let info="";
+  if(algo==="kmeans"){
+    const it=+$("c-it").value, s=hist[it];
+    $("c-itv").textContent=it+" of "+(hist.length-1);
+    draw(cv,P,s.L,s.C);
+    const inr=P.reduce((a,p,i)=>a+d2(p,s.C[s.L[i]]),0);
+    info=`Iteration ${it}: inertia = <b>${inr.toFixed(3)}</b>. `+(it===hist.length-1?"Converged: assignments no longer change. ":"Centroids move, then points re-join the nearest one. ");
+    if(ds==="moons" && it===hist.length-1) info+="<br><b style='color:var(--bad)'>Notice:</b> K-means cuts the moons with a straight line. It assumes round blobs, so crescents confuse it.";
+  } else {
+    let L;
+    if(algo==="dbscan") L=dbscan(P,+$("c-eps").value,+$("c-mp").value);
+    else L=agglo(P,k,algo);
+    draw(cv,P,L,null);
+    const nc=new Set(L.filter(l=>l>=0)).size, noise=L.filter(l=>l<0).length;
+    info=`Found <b>${nc}</b> cluster(s)`+(algo==="dbscan"?` and <b>${noise}</b> noise point(s) (hollow grey).`:`.`);
+    if(ds==="moons" && (algo==="dbscan"||algo==="single") && nc===2) info+=`<br><b style="color:var(--good)">Both moons found.</b> Density / chaining follows the curved shape.`;
+    if(ds==="moons" && algo==="average") info+=`<br><b style="color:var(--bad)">Notice:</b> average linkage prefers compact groups, so it splits the moons wrongly, like K-means.`;
+    if(algo==="dbscan") info+=` Try making eps tiny (everything becomes noise) or large (everything merges).`;
+  }
+  $("c-info").innerHTML=info;
+}
+["c-data","c-algo","c-k","c-eps","c-mp"].forEach(id=>$(id).oninput=()=>{
+  if(id==="c-data") $("c-k").value = $("c-data").value==="moons"?2:3;
+  recompute();
+});
+$("c-it").oninput=render;
+$("c-reroll").onclick=()=>{ seed+=1; recompute(); };
+recompute();
+
+// elbow table
+(function(){
+  const P=DATA.blobs.P; let rows="<tr><th>k</th><th>inertia (best of 5 starts)</th><th></th></tr>";
+  const vals=[];
+  for(let k=1;k<=8;k++){
+    let best=Infinity;
+    for(let s=1;s<=5;s++) best=Math.min(best,inertia(P,kmeansHist(P,k,randomInit(P.length,k,s*11))));
+    vals.push(best);
+  }
+  vals.forEach((v,i)=>{ rows+=`<tr${i===2?' style="background:var(--hi)"':''}><td>${i+1}</td><td>${v.toFixed(3)}</td><td><div style="height:10px;background:var(--accent);width:${(v/vals[0]*100).toFixed(1)}%"></div></td></tr>`; });
+  $("elbow").innerHTML=rows;
+})();
+
+// ---------- section 3 : toy text embeddings ----------
+// dims: [pet, food, vehicle, sport]
+const W = {};
+const addW=(words,v)=>words.split(" ").forEach(w=>W[w]=v);
+addW("cat dog puppy kitten hamster pet",[.9,0,0,0]);
+addW("pizza pasta cake soup cheese cook",[0,.9,0,0]);
+addW("car truck bus engine drive electric",[0,0,.9,0]);
+addW("football tennis goal match team win won",[0,0,0,.9]);
+const SENT = [
+  "my cat loves the puppy","the hamster and the kitten sleep","a dog sits with the cat",
+  "cook pasta with cheese","pizza and cake for dinner","hot soup with pasta",
+  "the electric car has a strong engine","drive the truck to the bus stop","a bus and a car on the road",
+  "the football team won the match","she scored a goal in football","the team will win the tennis match"
+];
+const tok = s=>s.toLowerCase().match(/[a-z0-9]+/g)||[];
+const embed = s=>{ const ws=tok(s).filter(w=>W[w]); const v=[0,0,0,0]; ws.forEach(w=>W[w].forEach((x,i)=>v[i]+=x/ws.length)); const n=Math.sqrt(v.reduce((a,x)=>a+x*x,0))||1; return v.map(x=>x/n); };
+const EV = SENT.map(embed);
+function esec(){
+  const k=+$("e-k").value; $("e-kv").textContent=k;
+  const h=kmeansHist(EV,k,farthestInit(EV,k)), L=h[h.length-1].L;
+  let out="";
+  for(let j=0;j<k;j++){
+    const m=SENT.filter((_,i)=>L[i]===j);
+    out+=`<div style="border-top:4px solid ${COL[j]}"><b>Cluster ${j+1} (${m.length})</b>${m.map(s=>`<div>${s}</div>`).join("")||"<div>(empty)</div>"}</div>`;
+  }
+  $("e-out").innerHTML=out;
+  $("e-note").textContent = k===4?"k = 4 recovers the four topics: pets, food, vehicles, sport.":k<4?"k is too small: different topics are forced into the same cluster.":"k is too large: a real topic is split into smaller pieces.";
+}
+$("e-k").oninput=esec; esec();
+</script>
+</body>
+</html>

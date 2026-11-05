@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recommendation Systems</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1f2430;--muted:#5d6577;--card:#fff;--line:#e2ded4;--accent:#2f5bea;--good:#1b7f4b;--bad:#b3261e;--code:#f1eee6;--hi:#fff3c4}
+@media (prefers-color-scheme:dark){:root{--bg:#14161b;--fg:#e8e9ee;--muted:#9aa1b2;--card:#1d2027;--line:#333846;--accent:#7fa0ff;--good:#5fd39a;--bad:#ff8a80;--code:#262a33;--hi:#4a4220}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:2rem;margin:.2em 0}
+h2{font-size:1.5rem;margin:2.2em 0 .4em;padding-top:.6em;border-top:2px solid var(--line)}
+h3{font-size:1.1rem;margin:1.4em 0 .3em}
+p.lead{color:var(--muted);font-size:1.05rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+.good{border-left:5px solid var(--good)}
+.flaw{border-left:5px solid var(--bad)}
+.flaw b.t{color:var(--bad)}
+.formula{font-family:ui-monospace,Menlo,monospace;background:var(--code);border-radius:8px;padding:10px 14px;margin:10px 0;overflow-x:auto;white-space:pre}
+code{background:var(--code);padding:1px 6px;border-radius:5px;font-size:.92em}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:.93rem}
+th,td{border:1px solid var(--line);padding:5px 9px;text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{background:var(--code)}
+tr.win td{background:var(--hi);font-weight:600}
+.wrap{overflow-x:auto}
+.nav{color:var(--muted);font-size:.95rem}
+select,button{font:inherit;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:14px 0}
+.grid3>div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.grid3 .em{font-size:1.8rem;line-height:1}
+.movies{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.movies button{text-align:left;padding:8px 10px;line-height:1.3}
+.movies button small{display:block;color:var(--muted);font-size:.78rem}
+.movies button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.movies button.on small{color:#e6ecff}
+.bar{display:flex;align-items:center;gap:8px;font-size:.9rem;margin:2px 0}
+.bar span.n{width:80px;color:var(--muted)}
+.bar span.b{display:block;height:12px;background:var(--accent);border-radius:3px}
+.bar span.v{font-family:ui-monospace,monospace;font-size:.82rem}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<h1>Recommendation Systems</h1>
+<p class="lead">"Because you watched..." How does an app guess what you want before you search for it?</p>
+<p class="nav">What they are &rarr; two main types &rarr; content-based in depth &rarr; try it</p>
+
+<!-- ========= 1 ========= -->
+<h2>1. What is a recommendation system?</h2>
+<p>A program that looks at <b>items</b> (videos, movies, products, songs) and <b>people</b> and predicts <em>what each person will like next</em>. It turns an overwhelming catalogue into a short personal list.</p>
+<div class="grid3">
+<div><div class="em">&#9654;</div><b>YouTube</b><br>"Up next" and the home feed. Most watch time comes from recommendations, not search.</div>
+<div><div class="em">&#127916;</div><b>Netflix</b><br>Rows like "Because you watched..." and the order of the thumbnails.</div>
+<div><div class="em">&#128717;</div><b>Amazon</b><br>"Customers who bought this also bought..."</div>
+<div><div class="em">&#127925;</div><b>Spotify</b><br>Discover Weekly, daily mixes, "similar artists".</div>
+<div><div class="em">&#128241;</div><b>Instagram / TikTok</b><br>The next reel to show you.</div>
+<div><div class="em">&#128188;</div><b>LinkedIn / Zomato</b><br>Jobs and people to follow, restaurants near you.</div>
+</div>
+<div class="card">
+<b>Why do companies care?</b> Netflix has thousands of titles. If you cannot find something in a minute, you leave. Good recommendations mean more watching, buying and retention.
+</div>
+
+<!-- ========= 2 ========= -->
+<h2>2. The two main types</h2>
+<div class="two">
+<div class="card good">
+<b>Content-based</b><br>
+"You liked this item, so here are items that <em>look similar</em>." Uses the <b>features of the items</b> (genre, actors, text description) and your own history.
+</div>
+<div class="card good">
+<b>Collaborative filtering</b><br>
+"People who behave like you liked this." Ignores what items are; it only uses <b>who liked what</b>. If you and Asha liked the same 10 movies and she loved an 11th, you probably will too. It works well with lots of users, but struggles with brand-new users and items (the <i>cold start</i> problem).
+</div>
+</div>
+<p>Real products usually combine them (<b>hybrid</b>). In this lesson we go deep on <b>content-based</b> because it builds directly on the vectors and cosine similarity from the semantic search lesson.</p>
+
+<!-- ========= 3 ========= -->
+<h2>3. Content-based recommendation, step by step</h2>
+
+<h3>Step 1. Describe every item as a vector</h3>
+<p>Turn each movie into a list of numbers: how much Action, Sci-Fi, Comedy, Romance, Drama, Animation it has (0 to 1). We assigned these by hand for our 11-movie catalogue.</p>
+<div class="wrap"><table id="feat"></table></div>
+<div class="card">
+<b>Where do the vectors come from in real life?</b>
+<ul>
+<li><b>Tags and genres</b> (like here): simple, readable.</li>
+<li><b>Text embeddings:</b> feed the title, description or reviews to an embedding model such as <code>all-MiniLM-L6-v2</code> and get 384 numbers per item. This is exactly the semantic search lesson, and it captures subtle similarity ("space survival" is close to "lost on Mars") with no manual tagging.</li>
+<li>Images and audio can be embedded too (movie posters, songs).</li>
+</ul>
+</div>
+
+<h3>Step 2. Measure item similarity with cosine</h3>
+<p>Same formula as semantic search: <code>cos(A,B) = A&middot;B / (|A| |B|)</code>. Close to 1 means the same flavour.</p>
+<div class="card">
+<label for="sim-sel" style="color:var(--muted);font-size:.92rem">Pick a movie to see "More like this":</label><br>
+<select id="sim-sel"></select>
+<div class="wrap"><table id="sim-table"></table></div>
+</div>
+<h3>Worked example: The Matrix vs Inception</h3>
+<div class="formula" id="work1"></div>
+
+<h3>Step 3. Build the user profile</h3>
+<p>We have vectors for movies. What is the vector for <em>you</em>? Simple and powerful trick: <b>the average of the vectors of everything you liked</b>.</p>
+<div class="formula" id="work2"></div>
+<p>The profile lives in the same space as the movies, so we can compare you directly with any movie.</p>
+
+<h3>Step 4. Score the unseen items and rank</h3>
+<div class="formula">for each movie you have NOT watched:
+    score = cosine(user_profile, movie_vector)
+recommend the top-N by score</div>
+
+<h2>Try it: build your taste profile</h2>
+<div class="card">
+<p style="margin-top:0">Click the movies you liked. Watch your profile bars and the recommendations change.</p>
+<div class="movies" id="movies"></div>
+<p><button id="reset">Clear all</button> <button id="preset1">Sci-fi fan</button> <button id="preset2">Family night</button> <button id="preset3">Romance + drama</button></p>
+<div class="two">
+<div>
+<b>Your taste profile</b> <span style="color:var(--muted);font-size:.88rem">(average of liked movies)</span>
+<div id="profile"></div>
+</div>
+<div>
+<b>Recommended for you</b>
+<div class="wrap"><table id="recs"></table></div>
+</div>
+</div>
+<p id="rec-note" style="margin:6px 0 0;color:var(--muted);font-size:.93rem"></p>
+</div>
+
+<h2>Strengths and weaknesses of content-based</h2>
+<div class="two">
+<div class="card good"><b>Strengths</b>
+<ul>
+<li>Works for a <b>brand-new item</b> as soon as it has features.</li>
+<li>Needs only <b>one user's</b> history, not millions of users.</li>
+<li><b>Explainable:</b> "because you like Sci-Fi".</li>
+</ul></div>
+<div class="card flaw"><b class="t">Weaknesses</b>
+<ul>
+<li><b>Filter bubble:</b> only similar things; you rarely discover a surprise. (Like only sci-fi and you will never see a comedy. Try it above.)</li>
+<li>Needs <b>good features</b>; bad tags give bad results.</li>
+<li><b>Cold start for users:</b> a new user with no likes has an empty profile.</li>
+</ul></div>
+</div>
+
+<h2>Summary</h2>
+<div class="wrap"><table>
+<tr><th>Type</th><th style="text-align:left">Uses</th><th style="text-align:left">Example</th><th style="text-align:left">Weak spot</th></tr>
+<tr><td>Content-based</td><td style="text-align:left">Item features + your history</td><td style="text-align:left">"More sci-fi like the ones you liked"</td><td style="text-align:left">Filter bubble</td></tr>
+<tr><td>Collaborative</td><td style="text-align:left">Behaviour of many users</td><td style="text-align:left">"People like you also watched"</td><td style="text-align:left">Cold start</td></tr>
+<tr><td>Hybrid</td><td style="text-align:left">Both</td><td style="text-align:left">Netflix, YouTube, Spotify</td><td style="text-align:left">More complex</td></tr>
+</table></div>
+<p class="nav">Related: <a href="keyword_search.html#sem">semantic search</a> (vectors and cosine) and <a href="clustering.html">clustering</a>.</p>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const FEATS = ["Action","Sci-Fi","Comedy","Romance","Drama","Animation"];
+const M = [
+  ["The Matrix",      [.9,1,0,0,.2,0]],
+  ["Inception",       [.7,.9,0,.1,.5,0]],
+  ["Interstellar",    [.3,1,0,.1,.8,0]],
+  ["Mad Max: Fury Road",[1,.6,0,0,.1,0]],
+  ["Die Hard",        [1,0,.2,0,.2,0]],
+  ["Toy Story",       [.2,0,.7,0,.2,1]],
+  ["Finding Nemo",    [.2,0,.6,0,.3,1]],
+  ["Shrek",           [.2,0,.9,.3,0,1]],
+  ["Superbad",        [0,0,1,.2,.1,0]],
+  ["The Notebook",    [0,0,0,1,.8,0]],
+  ["Titanic",         [.3,0,0,.9,.9,0]]
+];
+const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
+const norm=a=>Math.sqrt(dot(a,a));
+const cosine=(a,b)=>{const d=norm(a)*norm(b);return d?dot(a,b)/d:0;};
+const f2=x=>x.toFixed(2), f3=x=>x.toFixed(3);
+const fv=v=>"["+v.map(f2).join(", ")+"]";
+
+// features table
+$("feat").innerHTML="<tr><th>Movie</th>"+FEATS.map(f=>`<th>${f}</th>`).join("")+"</tr>"+
+  M.map(m=>`<tr><td>${m[0]}</td>${m[1].map(x=>`<td>${f2(x)}</td>`).join("")}</tr>`).join("");
+
+// more like this
+$("sim-sel").innerHTML=M.map((m,i)=>`<option value="${i}">${m[0]}</option>`).join("");
+function sim(){
+  const a=+$("sim-sel").value;
+  const rows=M.map((m,i)=>[i,cosine(M[a][1],m[1])]).filter(r=>r[0]!==a).sort((x,y)=>y[1]-x[1]);
+  $("sim-table").innerHTML="<tr><th>Similar to "+M[a][0]+"</th><th>cosine</th></tr>"+
+    rows.slice(0,5).map((r,j)=>`<tr${j===0?' class="win"':''}><td>${M[r[0]][0]}</td><td>${f3(r[1])}</td></tr>`).join("");
+}
+$("sim-sel").onchange=sim; sim();
+
+// worked example 1
+(function(){
+  const A=M[0][1],B=M[1][1];
+  $("work1").textContent=
+`A = The Matrix = ${fv(A)}
+B = Inception  = ${fv(B)}
+A . B  = ${A.map((x,i)=>f2(x)+"x"+f2(B[i])).join(" + ")} = ${f3(dot(A,B))}
+|A|    = ${f3(norm(A))}      |B| = ${f3(norm(B))}
+cosine = ${f3(dot(A,B))} / (${f3(norm(A))} x ${f3(norm(B))}) = ${f3(cosine(A,B))}   (very similar)`;
+})();
+// worked example 2
+(function(){
+  const L=[0,1].map(i=>M[i][1]);
+  const P=FEATS.map((_,j)=>(L[0][j]+L[1][j])/2);
+  $("work2").textContent=
+`You liked:  The Matrix    ${fv(L[0])}
+            Inception     ${fv(L[1])}
+profile = average
+        = [${FEATS.map((_,j)=>`(${f2(L[0][j])}+${f2(L[1][j])})/2`).join(", ")}]
+        = ${fv(P)}
+          ${FEATS.map(f=>f.slice(0,6).padEnd(6)).join("  ")}   <- Sci-Fi and Action dominate`;
+})();
+
+// interactive
+let liked=new Set();
+function drawMovies(){
+  $("movies").innerHTML=M.map((m,i)=>{
+    const top=FEATS[m[1].indexOf(Math.max(...m[1]))];
+    return `<button data-i="${i}" class="${liked.has(i)?'on':''}">${m[0]}<small>${top}${liked.has(i)?' &middot; liked':''}</small></button>`;
+  }).join("");
+  document.querySelectorAll("#movies button").forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i; liked.has(i)?liked.delete(i):liked.add(i); update();
+  });
+}
+function update(){
+  drawMovies();
+  if(!liked.size){
+    $("profile").innerHTML='<p style="color:var(--muted)">Empty profile. This is the <b>cold start</b> problem: with no history we cannot recommend anything personal.</p>';
+    $("recs").innerHTML=""; $("rec-note").textContent=""; return;
+  }
+  const L=[...liked].map(i=>M[i][1]);
+  const P=FEATS.map((_,j)=>L.reduce((s,v)=>s+v[j],0)/L.length);
+  $("profile").innerHTML=FEATS.map((f,j)=>`<div class="bar"><span class="n">${f}</span><span class="b" style="width:${P[j]*140}px"></span><span class="v">${f2(P[j])}</span></div>`).join("");
+  const rows=M.map((m,i)=>({i,s:cosine(P,m[1]),why:FEATS[m[1].map((x,j)=>x*P[j]).reduce((b,v,j,a)=>v>a[b]?j:b,0)]}))
+    .filter(r=>!liked.has(r.i)).sort((a,b)=>b.s-a.s);
+  $("recs").innerHTML="<tr><th>Movie</th><th>score</th><th>because</th></tr>"+
+    rows.slice(0,5).map((r,k)=>`<tr${k===0?' class="win"':''}><td>${M[r.i][0]}</td><td>${f3(r.s)}</td><td style="text-align:left">${r.why}</td></tr>`).join("");
+  const bottom=rows[rows.length-1];
+  $("rec-note").textContent="Seen movies are excluded. Lowest-scored for you: "+M[bottom.i][0]+" ("+f3(bottom.s)+"). Content-based keeps you inside your taste: the filter bubble.";
+}
+const set=names=>{ liked=new Set(names.map(n=>M.findIndex(m=>m[0]===n))); update(); };
+$("reset").onclick=()=>{ liked=new Set(); update(); };
+$("preset1").onclick=()=>set(["The Matrix","Inception"]);
+$("preset2").onclick=()=>set(["Toy Story","Shrek"]);
+$("preset3").onclick=()=>set(["The Notebook"]);
+set(["The Matrix","Inception"]);
+</script>
+</body>
+</html>
